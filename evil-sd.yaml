@@ -1,0 +1,5 @@
+name: evil-sd
+backend: diffusers
+model: /models/evil.ckpt
+diffusers:
+  pipeline_type: StableDiffusionPipeline
